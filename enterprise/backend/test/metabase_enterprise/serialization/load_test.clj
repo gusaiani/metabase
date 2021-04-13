@@ -116,7 +116,7 @@
                                          [DashboardCard (DashboardCard dashcard-id)]
                                          [DashboardCard (DashboardCard dashcard-with-click-actions)]]})]
       (with-world-cleanup
-        (load dump-dir {:on-error :continue :mode :skip})
+        (load dump-dir {:on-error :continue :mode :update})
         (doseq [[model entity] (:entities fingerprint)]
           (testing (format "%s \"%s\"" (type model) (:name entity))
             (is (or (-> entity :name nil?)
