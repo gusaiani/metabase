@@ -43,6 +43,8 @@ import {
   lexerWithRecovery,
 } from "./lexer";
 
+import { tokenize, TOKEN } from "./tokenizer";
+
 import getHelpText from "./helper_text_strings";
 
 import { ExpressionDimension } from "metabase-lib/lib/Dimension";
@@ -65,6 +67,50 @@ for (const type of EXPRESSION_TYPES) {
   OPERATORS_BY_TYPE[type] = Array.from(OPERATORS)
     .filter(name => isExpressionType(MBQL_CLAUSES[name].type, type))
     .map(name => MBQL_CLAUSES[name]);
+}
+
+function complete(startRule, query, source, targetOffset = source.length) {
+  const partialSource = source.slice(0, targetOffset);
+  const { tokens } = tokenize(partialSource);
+  const lastToken = _.last(tokens);
+  if (
+    startRule !== "aggregation" &&
+    lastToken &&
+    lastToken.type === TOKEN.Identifier &&
+    lastToken.end >= partialSource.length
+  ) {
+    const candidates = [];
+    const dimensions = query.dimensionOptions(() => true).all();
+    candidates.push(
+      ...dimensions.map(dimension => ({
+        type: "fields",
+        name: getDimensionName(dimension),
+        text: formatDimensionName(dimension) + " ",
+        alternates: EDITOR_FK_SYMBOLS.symbols.map(symbol =>
+          getDimensionName(dimension, symbol),
+        ),
+        prefixTrim: /^(\w|\.)+\s*/,
+        postfixTrim: /(\w|\.)+$/,
+      })),
+    );
+    candidates.push(
+      ...query.table().segments.map(segment => ({
+        type: "segments",
+        name: segment.name,
+        text: formatSegmentName(segment),
+        prefixTrim: /^(\w|\.)+\s*/,
+        postfixTrim: /(\w|\.)+$/,
+      })),
+    );
+    const partialIdentifier = partialSource
+      .slice(lastToken.start, lastToken.end)
+      .toLowerCase();
+    return candidates.filter(entry => {
+      return entry.name.toLowerCase().startsWith(partialIdentifier);
+    });
+  }
+
+  return [];
 }
 
 export function suggest({
@@ -123,7 +169,7 @@ export function suggest({
   }
   const { expectedType } = context;
 
-  let finalSuggestions = [];
+  let finalSuggestions = complete(startRule, query, source, targetOffset);
 
   const syntacticSuggestions = parserWithRecovery.computeContentAssist(
     startRule,
