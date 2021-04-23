@@ -2,17 +2,17 @@ import { t } from "ttag";
 
 export const MODERATION_ACTIONS = {
   verification: {
-    name: "verification",
+    type: "verification",
     icon: "verified",
     color: "brand",
   },
   flag: {
-    name: "flag",
+    type: "flag",
     icon: "warning_colorized",
     color: "accent5",
   },
   question: {
-    name: "question",
+    type: "question",
     icon: "clarification",
     color: "accent2",
   },
@@ -41,7 +41,7 @@ export function getModerationActionsList() {
   ];
 }
 
-export function getModerationStatusIcon(status) {
-  const { icon } = MODERATION_ACTIONS[status] || {};
+export function getModerationStatusIcon(type) {
+  const { icon } = MODERATION_ACTIONS[type] || {};
   return icon;
 }
