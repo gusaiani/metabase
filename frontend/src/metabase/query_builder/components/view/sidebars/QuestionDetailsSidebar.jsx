@@ -1,15 +1,22 @@
 import React from "react";
 import SidebarContent from "metabase/query_builder/components/SidebarContent";
-import { PLUGIN_MODERATION_ISSUE_ACTION_MENU } from "metabase/plugins";
+import { PLUGIN_MODERATION_COMPONENTS } from "metabase/plugins";
+
+const {
+  active: isPluginActive,
+  ModerationIssueActionMenu,
+} = PLUGIN_MODERATION_COMPONENTS;
 
 function QuestionDetailsSidebar() {
   return (
     <SidebarContent className="full-height px1">
-      <div>
-        {PLUGIN_MODERATION_ISSUE_ACTION_MENU.Component && (
-          <PLUGIN_MODERATION_ISSUE_ACTION_MENU.Component onAction={() => {}} />
-        )}
-      </div>
+      {isPluginActive ? (
+        <div>
+          <ModerationIssueActionMenu onAction={() => {}} />
+        </div>
+      ) : (
+        <div />
+      )}
     </SidebarContent>
   );
 }

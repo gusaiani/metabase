@@ -54,6 +54,6 @@ export const PLUGIN_DASHBOARD_SUBSCRIPTION_PARAMETERS_SECTION_OVERRIDE = {
   Component: undefined,
 };
 
-export const PLUGIN_MODERATION_ISSUE_ACTION_MENU = {
-  Component: undefined,
+export const PLUGIN_MODERATION_COMPONENTS = {
+  active: false,
 };

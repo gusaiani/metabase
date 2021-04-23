@@ -20,13 +20,13 @@ function ModerationIssueActionMenu({ className, onAction }) {
         className: "text-brand border-brand",
       }}
       className={className}
-      items={moderationActionsList.map(({ name, icon, color }) => {
+      items={moderationActionsList.map(({ type, icon, color }) => {
         return {
           icon,
           iconSize: 18,
           className: `text-${color}`,
           action: () => onAction(name),
-          title: MODERATION_TEXT.moderator[name].action,
+          title: MODERATION_TEXT.moderator[type].action,
         };
       })}
     />
