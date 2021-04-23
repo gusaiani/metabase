@@ -281,7 +281,7 @@
   (cond
     (:source-table query) (update-in query [:source-table] source-table)
     (:source-query query) (update-in query [:source-query] fully-qualified-name->id-rec)
-    true query))
+    :default query))
 
 (defn- source-card
   [fully-qualified-name]
@@ -290,9 +290,44 @@
     (catch Throwable e
       (log/warn e))))
 
+(defn- update-capture-missing*
+  [m ks resolve-fn get-fn update-fn]
+  (let [orig-v (get-fn m ks)
+        res    (update-fn m ks resolve-fn)
+        new-v  (get-fn res ks)]
+    (if (and (some? orig-v) (nil? new-v))
+      (update res ::unresolved-names #(assoc % orig-v ks))
+      res)))
+
+(defn- update-in-capture-missing
+  [m ks resolve-fn]
+  (update-capture-missing* m ks resolve-fn get-in update-in))
+
+(defn- update-existing-in-capture-missing
+  [m ks resolve-fn]
+  (update-capture-missing* m ks resolve-fn get-in m/update-existing-in))
+
+(defn- update-existing-capture-missing
+  [m k resolve-fn]
+  (update-capture-missing* m [k] resolve-fn get-in m/update-existing-in))
+
+(defn- pull-unresolved-names-up [m ks v]
+  (if-let [unresolved-names (::unresolved-names v)]
+    (-> (assoc m ::unresolved-names (m/map-vals #(vec (concat ks %)) unresolved-names))
+        (assoc-in ks (dissoc v ::unresolved-names)))
+    (assoc-in m ks v)))
+
 (defn- resolve-native
-  [template-tags]
-  (m/map-vals #(m/update-existing % :card-id source-card) template-tags))
+  [card]
+  (let [ks                [:dataset_query :native :template-tags]
+        template-tags     (get-in card ks)
+        new-template-tags (reduce-kv
+                           (fn [m k v]
+                             (let [new-v (update-existing-capture-missing v :card-id source-card)]
+                               (pull-unresolved-names-up m [k] new-v)))
+                           {}
+                           template-tags)]
+    (pull-unresolved-names-up card ks new-template-tags)))
 
 (defn- resolve-card [card context]
   (-> card
@@ -311,17 +346,34 @@
           (-> card
               :dataset_query
               :native
-              :template-tags)
-          (m/update-existing-in [:dataset_query :native :template-tags] resolve-native))))
+              :template-tags
+              not-empty) (resolve-native))))
 
-(defmethod load "cards"
-  [path context]
-  (let [paths (list-dirs path)
-        touched-card-ids (maybe-upsert-many!
-                          context Card
-                          (for [card (slurp-many paths)]
-                            (resolve-card card context)))]
+(defn- make-dummy-card
+  "Make a dummy card for first pass insertion"
+  [card]
+  (-> card
+      (assoc :dataset_query {:type :native :native {:query "-- DUMMY QUERY FOR SERIALIZATION FIRST PASS INSERT"}})
+      (dissoc ::unresolved-names)))
 
+(defn load-cards [context paths only-cards]
+  (let [cards              (or only-cards (slurp-many paths))
+        resolved-cards     (for [card cards]
+                             (resolve-card card context))
+        grouped-cards      (reduce-kv
+                            (fn [acc idx card]
+                              (if (::unresolved-names card)
+                                (-> acc
+                                    (update ::revisit #(conj % card))
+                                    (update ::revisit-index #(conj % idx)))
+                                (update acc ::process #(conj % card))))
+                            {::revisit [] ::revisit-index [] ::process []}
+                            (vec resolved-cards))
+        dummy-insert-cards (not-empty (::revisit grouped-cards))
+        process-cards      (::process grouped-cards)
+        touched-card-ids   (maybe-upsert-many!
+                            context Card
+                            process-cards)]
     (maybe-fixup-card-template-ids!
      (assoc context :mode :update)
      Card
@@ -330,7 +382,37 @@
 
     ;; Nested cards
     (doseq [path paths]
-      (load (str path "/cards") context))))
+      (load (str path "/cards") context))
+
+    (if dummy-insert-cards
+      (let [dummy-inserted-ids (maybe-upsert-many!
+                                context
+                                Card
+                                (map make-dummy-card dummy-insert-cards))
+            id-and-cards       (map vector dummy-insert-cards dummy-inserted-ids)
+            retry-info-fn      (fn [[card card-id]]
+                                 (format
+                                  "\"%s\" (inserted as ID %d), missing:%n%s%n"
+                                  (:name card)
+                                  card-id
+                                  (str/join
+                                   "\n  "
+                                   (map
+                                    (fn [[k v]]
+                                      (format "  for %s -> %s" (str/join "/" v) k))
+                                    (::unresolved-names card)))))]
+        (log/infof
+         "Unresolved references found for cards in collection %d; will reload after first pass%n%s%n"
+         (:collection context)
+         (str/join "%n" (map retry-info-fn id-and-cards)))
+        (fn []
+          (log/infof "Attempting to reload cards in collection %d" (:collection context))
+          (let [revisit-indexes (::revisit-index grouped-cards)]
+            (load-cards context paths (mapv (partial nth cards) revisit-indexes))))))))
+
+(defmethod load "cards"
+  [path context]
+  (load-cards context (list-dirs path) nil))
 
 (defmethod load "users"
   [path context]
