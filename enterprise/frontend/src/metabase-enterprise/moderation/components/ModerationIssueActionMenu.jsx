@@ -3,8 +3,14 @@ import { t } from "ttag";
 import PropTypes from "prop-types";
 
 import EntityMenu from "metabase/components/EntityMenu";
+import {
+  getModerationActionsList,
+  MODERATION_TEXT,
+} from "metabase/lib/moderation";
 
-function ModerationIssueActionMenu({ className }) {
+function ModerationIssueActionMenu({ className, onAction }) {
+  const moderationActionsList = getModerationActionsList();
+
   return (
     <EntityMenu
       triggerChildren={t`Moderate`}
@@ -14,35 +20,22 @@ function ModerationIssueActionMenu({ className }) {
         className: "text-brand border-brand",
       }}
       className={className}
-      items={[
-        {
-          icon: "verified",
+      items={moderationActionsList.map(({ name, icon, color }) => {
+        return {
+          icon,
           iconSize: 18,
-          title: t`Verify this`,
-          className: "text-brand",
-          action: () => null,
-        },
-        {
-          icon: "warning_colorized",
-          iconSize: 18,
-          title: t`This is misleading`,
-          className: "text-accent5",
-          action: () => null,
-        },
-        {
-          icon: "clarification",
-          iconSize: 18,
-          title: t`This is confusing`,
-          className: "text-accent2",
-          action: () => null,
-        },
-      ]}
+          className: `text-${color}`,
+          action: () => onAction(name),
+          title: MODERATION_TEXT.moderator[name].action,
+        };
+      })}
     />
   );
 }
 
 ModerationIssueActionMenu.propTypes = {
   className: PropTypes.string,
+  onAction: PropTypes.func,
 };
 
 export default ModerationIssueActionMenu;

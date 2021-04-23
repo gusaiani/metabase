@@ -7,7 +7,7 @@ function QuestionDetailsSidebar() {
     <SidebarContent className="full-height px1">
       <div>
         {PLUGIN_MODERATION_ISSUE_ACTION_MENU.Component && (
-          <PLUGIN_MODERATION_ISSUE_ACTION_MENU.Component />
+          <PLUGIN_MODERATION_ISSUE_ACTION_MENU.Component onAction={() => {}} />
         )}
       </div>
     </SidebarContent>
