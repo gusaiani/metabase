@@ -25,7 +25,9 @@ function CreateModerationIssuePanel({ issueType, onCancel }) {
       <div>
         {MODERATION_TEXT.moderator[issueType].actionCreationDescription}
       </div>
-      <label>{MODERATION_TEXT.moderator[issueType].actionCreationLabel}</label>
+      <label className="text-bold">
+        {MODERATION_TEXT.moderator[issueType].actionCreationLabel}
+      </label>
       <textarea
         className="input full"
         rows={10}
