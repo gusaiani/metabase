@@ -440,7 +440,7 @@ describe("collection permissions", () => {
         cy.signInAsAdmin();
       });
 
-      it.skip("shouldn't record history steps when there was no diff (metabase#1926)", () => {
+      it("shouldn't render revision history steps when there was no diff (metabase#1926)", () => {
         cy.signInAsAdmin();
         cy.createDashboard("foo").then(({ body }) => {
           visitAndEditDashboard(body.id);
